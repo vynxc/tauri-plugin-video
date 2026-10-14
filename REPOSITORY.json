@@ -1,0 +1,9 @@
+{
+  "repository_id": 1367453527,
+  "repository": "https://github.com/vynxc/tauri-plugin-video",
+  "transfer_date": "2026-10-14",
+  "main_sha_at_transfer": "7a85ad46b5f1ece4ae7cc1e7afb928e3d2c4dad2",
+  "experimental_sha_at_transfer": "c99249fc28d742ca462954c9528353dfa35c7fa4",
+  "all_branch_tag_refs_preserved_at_transfer": true,
+  "all_refs_sha256_at_transfer": "007f76c45175f1afc53f97005ff2591740f6a63a1c83488139eee572aefa34d2"
+}

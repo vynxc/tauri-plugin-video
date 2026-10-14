@@ -19,3 +19,8 @@ Rust 1.96; it was compiled with Rust 1.98. No registry release is claimed.
 
 The main branch is preserved. This document records experimental source and local
 evidence, not universal device, codec or platform qualification.
+
+The repository transfer completed on 2026-10-14 with the same repository ID.
+The complete branch/tag manifest matched before and after, and the main commit
+remained `7a85ad46b5f1ece4ae7cc1e7afb928e3d2c4dad2`. `REPOSITORY.json`
+records that checkpoint. The old organization URL redirects to this repository.
