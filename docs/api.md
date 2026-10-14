@@ -1,6 +1,6 @@
 # Tauri adapter API
 
-`@get-air/video-tauri` adds native Tauri playback to the platform-neutral
+`@vynxc/video-tauri` adds native Tauri playback to the platform-neutral
 [`@get-air/video`](https://github.com/get-air/video) API. The common package
 owns `VideoController`, backend fallback, subtitles, and React
 integrations, and DOM backends. This package owns only the
@@ -13,7 +13,7 @@ import {
   createTauriVideoClient,
   type NativeVideoBackend,
   type TauriPlaybackOptions,
-} from '@get-air/video-tauri'
+} from '@vynxc/video-tauri'
 
 const client = createTauriVideoClient({
   playback: {
@@ -56,12 +56,12 @@ rejects legacy or mismatched JavaScript before dispatching to a native engine.
 import {
   getTauriVideoDiagnostics,
   TAURI_VIDEO_PROTOCOL_VERSION,
-} from '@get-air/video-tauri'
+} from '@vynxc/video-tauri'
 
 const diagnostics = await getTauriVideoDiagnostics()
 // {
 //   protocolVersion: <integer>,
-//   packageName: '@get-air/video-tauri',
+//   packageName: '@vynxc/video-tauri',
 //   packageVersion: '<npm version>',
 //   crateName: 'tauri-plugin-video',
 //   crateVersion: '<crate version>'
@@ -71,7 +71,7 @@ const diagnostics = await getTauriVideoDiagnostics()
 An unequal version, malformed response, or older plugin without the diagnostic
 command rejects attachment with `_tag: 'VideoNativeProtocolMismatchError'`.
 The schema-backed error constructor is exported from
-`@get-air/video-tauri/effect`; Promise callers can handle the serializable tag
+`@vynxc/video-tauri/effect`; Promise callers can handle the serializable tag
 and diagnostic fields without loading Effect on the successful path. Those
 fields include `expectedProtocolVersion`, optional `actualProtocolVersion`, the
 npm package name/version, optional native crate name/version, and an optional
@@ -158,7 +158,7 @@ For applications that do not need to inject a client, this package exposes a
 default Tauri-enabled façade:
 
 ```ts
-import { attachTauriVideo, attachVideo } from '@get-air/video-tauri'
+import { attachTauriVideo, attachVideo } from '@vynxc/video-tauri'
 
 const native = await attachTauriVideo(video, { source: movieUrl })
 const explicit = await attachVideo(video, { source: movieUrl, backend: 'tauri' })
@@ -180,7 +180,7 @@ option:
 
 ```tsx
 import { VideoPlayer } from '@get-air/video/react'
-import { createTauriVideoClient } from '@get-air/video-tauri'
+import { createTauriVideoClient } from '@vynxc/video-tauri'
 
 const client = createTauriVideoClient()
 
@@ -206,7 +206,7 @@ import {
   attachVideoEffect,
   layerTauriVideoBackend,
   VideoPlayerService,
-} from '@get-air/video-tauri/effect'
+} from '@vynxc/video-tauri/effect'
 import { Effect, Layer } from 'effect'
 
 const InfrastructureLive = Layer.mergeAll(

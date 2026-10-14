@@ -23,9 +23,9 @@ args.output.mkdir(parents=True, exist_ok=True)
 def run(index):
     env = {
         **os.environ,
-        "VIPTV_NATIVE_PROVIDER_CASES": str(args.cases.resolve()),
-        "VIPTV_NATIVE_CASE_INDEX": str(index),
-        "VIPTV_NATIVE_ENGINE": args.engine,
+        "TAURI_VIDEO_NATIVE_PROVIDER_CASES": str(args.cases.resolve()),
+        "TAURI_VIDEO_NATIVE_CASE_INDEX": str(index),
+        "TAURI_VIDEO_NATIVE_ENGINE": args.engine,
     }
     with (args.output / f"{args.engine}-{index + 1:02d}.log").open("w") as log:
         try:

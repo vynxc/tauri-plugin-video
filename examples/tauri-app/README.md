@@ -1,7 +1,7 @@
 # Native stream lab
 
 The React + TypeScript reference app for `tauri-plugin-video` and
-`@get-air/video-tauri`.
+`@vynxc/video-tauri`.
 
 It creates a Tauri-enabled `VideoClient`, injects that client into the
 platform-neutral `@get-air/video/react` component/API, and combines it with
@@ -16,7 +16,7 @@ npm run tauri dev
 ```
 
 The startup command installs the repository-root build dependencies when they
-are absent and rebuilds the linked `@get-air/video-tauri` guest adapter before
+are absent and rebuilds the linked `@vynxc/video-tauri` guest adapter before
 Vite starts. A clean clone therefore cannot mix an older generated JavaScript
 adapter with the current Rust plugin.
 

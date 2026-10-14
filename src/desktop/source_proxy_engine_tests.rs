@@ -133,7 +133,7 @@ fn fixtures() -> &'static Fixtures {
     static FIXTURES: OnceLock<Fixtures> = OnceLock::new();
     FIXTURES.get_or_init(|| {
         let root =
-            std::env::temp_dir().join(format!("viptv-plugin-disguised-{}", std::process::id()));
+            std::env::temp_dir().join(format!("tauri-video-plugin-disguised-{}", std::process::id()));
         let (ts, fmp4) = (root.join("ts"), root.join("fmp4"));
         for dir in [&root, &ts, &fmp4] {
             std::fs::create_dir_all(dir).unwrap();

@@ -96,7 +96,7 @@ impl<R: Runtime> DesktopVideo<R> {
         let result = self.run_on_main(move |_| {
             // Explicit debug-only fault injection for the host's watchdog test.
             #[cfg(debug_assertions)]
-            if std::env::var("VIPTV_TEST_BLOCK_NATIVE_CLOSE")
+            if std::env::var("TAURI_VIDEO_TEST_BLOCK_NATIVE_CLOSE")
                 .ok()
                 .as_deref()
                 == Some("1")

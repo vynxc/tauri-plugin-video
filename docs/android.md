@@ -7,7 +7,7 @@ that surface for controls and HTML overlays.
 LibVLC is retained as an explicit engine only:
 
 ```ts
-import { createTauriVideoClient } from '@get-air/video-tauri'
+import { createTauriVideoClient } from '@vynxc/video-tauri'
 
 const client = createTauriVideoClient()
 await client.attach(video, {

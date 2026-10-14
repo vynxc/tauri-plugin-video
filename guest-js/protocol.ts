@@ -5,15 +5,10 @@ import { nativeProtocolMismatchError } from './runtime-errors'
 
 const COMMAND = 'plugin:video|'
 
-/**
- * Increment only for a backward-incompatible native command, payload,
- * response, or serialized-error change. Additive diagnostics and capabilities
- * remain compatible at the same protocol version.
- */
+/** Native command, payload, response and error compatibility identifier. */
 export const TAURI_VIDEO_PROTOCOL_VERSION = 1 as const
-export const TAURI_VIDEO_PACKAGE_NAME = '@viptv/video-tauri' as const
-// Kept explicit so diagnostics work in browsers. A focused test enforces that
-// this value cannot drift from package.json during a version bump.
+export const TAURI_VIDEO_PACKAGE_NAME = '@vynxc/video-tauri' as const
+// Browser diagnostics use an explicit package version without importing Node metadata.
 export const TAURI_VIDEO_PACKAGE_VERSION = '0.4.0' as const
 
 export interface NativeVideoPluginDiagnostics {
@@ -68,7 +63,7 @@ async function verifyTauriVideoProtocolUncached(): Promise<TauriVideoDiagnostics
     diagnostics = await getTauriVideoDiagnostics()
   } catch (cause) {
     throw await protocolMismatch({
-      message: `${TAURI_VIDEO_PACKAGE_NAME}@${TAURI_VIDEO_PACKAGE_VERSION} could not verify the native video protocol. Update @viptv/video-tauri and tauri-plugin-video to a compatible pair.`,
+      message: `${TAURI_VIDEO_PACKAGE_NAME}@${TAURI_VIDEO_PACKAGE_VERSION} could not verify the native video protocol. Update @vynxc/video-tauri and tauri-plugin-video to a compatible pair.`,
       cause: errorMessage(cause),
     })
   }

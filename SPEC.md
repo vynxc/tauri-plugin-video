@@ -1,313 +1,56 @@
-# Tauri video plugin specification
+# Native video protocol and runtime
 
-Derived from the code at the revision that carries this file. When code and this
-document disagree, the code is the bug report: fix one so they match.
+The plugin is a standalone Tauri adapter. Native engines render video while the
+host web UI renders its own controls. `@get-air/video` supplies the typed client
+contract; the plugin has no product metadata, account or backend API integration.
 
-## Purpose and ownership
+## IPC and ownership
 
-`viptv-org/tauri-video-plugin` adapts platform-native playback engines to
-Tauri. It exposes playback facts and commands over IPC; it never draws VIPTV
-controls, overlays or focus.
+Commands use the existing `plugin:video|` namespace and protocol version `1`.
+Diagnostics identify the Rust crate, version, available engines and source-proxy
+support before stateful attachment. The JavaScript package exposes the native
+surface adapter and Effect integration. A successful protocol check is cached;
+failed checks remain retryable.
 
-- **UX authority** is the [`viptv-org/design`](https://github.com/viptv-org/design)
-  repository (pinned in `DESIGN_REF`) and its design canvas. Controls,
-  shortcuts, focus, pause/resume, source picker, up-next and next-episode
-  behavior live in the React application.
-- **Controller authority** is [`viptv-org/video`](https://github.com/viptv-org/video):
-  its `TauriNativeAdapter` (`src/tauri-native.ts`) drives the raw
-  `plugin:video|native_*` IPC commands described below and implements the
-  shared `Player` contract. VIPTV uses that adapter.
-- **JavaScript façade.** `adapter/`, `guest-js/` and `examples/` are this
-  plugin's own public JavaScript API (`@viptv/video-tauri`, wrapping the
-  upstream `@get-air/video` peer). VIPTV does not use it; it is kept as the
-  plugin's standalone API and must stay consistent with the Rust protocol.
+A selected source opens under a session identity. Replacement retires the prior
+engine and its private source state. Late close, callbacks and stale session
+commands cannot retire a newer owner. Host shutdown stops engines on their
+owning UI thread and releases process-owned proxy routes.
 
-## IPC protocol
+## Platforms
 
-`VIDEO_PLUGIN_PROTOCOL_VERSION = 1` (`src/models.rs`). Commands (all under
-`plugin:video|`):
+Linux's GStreamer transitions, seeks, track selection and timing queries run in
+an ordered worker. GTK owns native widget allocation and presentation. Snapshots
+contain completed telemetry. Volume uses a dedicated audio filter. Explicit mpv
+redraws use the owning GL context and atomic update notification.
 
-| Command | Payload | Result |
-| --- | --- | --- |
-| `native_diagnostics` | none | `{protocolVersion, crateName, crateVersion, platform, engines[], sourceProxy}` |
-| `native_prepare_texture_stream` | `sessionKey` | WebView2 stream id (Windows only) |
-| `native_open` | `NativeOpenRequest` | `NativePlaybackSnapshot` |
-| `native_control` | `{sessionKey, action, value, index}` | `NativePlaybackSnapshot` |
-| `native_layout` | `{sessionKey, x, y, width, height, scrollX, scrollY}` | none |
-| `native_stats` | `{sessionKey}` | `NativePlaybackSnapshot` |
-| `native_close` | `{sessionKey}` | none |
+Windows retains its implemented native GStreamer surface. Android's default
+Media3 engine presents through SurfaceView beneath the host WebView. LibVLC is
+an explicit Android engine; media errors do not silently select another engine.
+Other hosts retain their typed unavailable-surface result.
 
-Handshake: a client calls `native_diagnostics` first and refuses to continue
-unless `protocolVersion` equals its own. `native_open` additionally requires
-`protocolVersion == 1` and a non-empty `packageVersion`; otherwise it fails with
-`PROTOCOL_MISMATCH` (stage `protocol`). Additive diagnostic or capability
-fields do not change the protocol number; incompatible command, payload,
-response or error-shape changes do (see `VERSIONING.md`).
+## Media and source authority
 
-`native_control` actions: `play`, `pause`, `seek` (`value` seconds), `volume`
-(`value` 0..1), `track` / `deselectTrack` (`index` from the snapshot's
-`tracks`), and the fit modes `fit`, `crop`, `stretch` (plus `zoom` on mpv; the
-Windows engine accepts the fit modes as no-ops). Any other action is
-`INVALID_REQUEST`.
+Sources carry a selected URI and bounded, validated headers. The plugin has no
+provider search or stream-ranking policy. Its loopback desktop HLS proxy retains
+validated source authorization, rewrites playlist media references to its own
+routes and strips supported misleading segment prefixes. Source replacement and
+shutdown release those routes. Public telemetry contains playback facts rather
+than private source credentials.
 
-GStreamer asynchronous seek/track refusal is a nonterminal `controlFailure`
-snapshot fact (`seek` or `track`), fenced to the owning session and command
-revision. It does not post a pipeline ERROR or stop stats polling. A new
-seek/track command clears the previous refusal; the shared controller reports
-operation feedback without escalating the selected delivery.
-Seek and track revisions are independent, so a seek cannot discard pending
-track-refusal cleanup. Native buffering includes actual `bufferedRanges` with
-starts and gaps when the engine exposes them; absence is not a full-file cache.
+Tracks retain audio/subtitle identity and supported selection. Source-native
+live/DVR facts are separate from VOD duration and seek bounds. Native picture
+modes preserve aspect ratio in their implemented viewport. Codec, HDR, DRM and
+platform support depend on the actual engine/device evidence.
 
-## Backend selection
+## Errors and diagnostics
 
-The engine is chosen explicitly; there is no silent substitution.
+Typed failures distinguish decoder/format, video/audio output, protected media,
+source loading, runtime setup, authorization and network failures. Runtime error
+domains/numeric codes establish their classification. Bounded, redacted source
+refusal diagnostics do not replace the underlying engine error.
 
-- `native_diagnostics.engines` lists the engines compiled into this build in
-  the order an `auto` client must prefer them. **GStreamer is first** whenever
-  `gstreamer-runtime` is compiled (Linux and Windows); `mpv` follows on Linux
-  when `mpv-runtime` is compiled. This order matches the Rust default.
-- `NativeOpenRequest.backend` omitted → the platform default: GStreamer.
-  On Linux without `gstreamer-runtime` an omitted backend is
-  `RUNTIME_UNAVAILABLE`; `mpv` must then be requested explicitly.
-- An explicit backend that was not compiled fails with `RUNTIME_UNAVAILABLE`
-  (`gstreamer`/`mpv` on Linux; `mpv` on Windows, where it is not implemented).
-  An unknown backend name is `INVALID_REQUEST`. Clients must surface the error,
-  not fall back to another engine.
-- Linux keeps one active backend. Switching backends force-closes the previous
-  engine first; if the replacement fails, controls are no longer routed to the
-  stale backend.
-
-## Source replacement and session ownership
-
-The native player is a singleton per process (one GStreamer or mpv player, one
-native surface).
-
-- **Session key.** Every `native_open` carries a `sessionKey` generated by the
-  JavaScript controller. Control, layout and stats calls must present the key
-  of the session that currently owns the engine; a different key fails with
-  `INVALID_REQUEST` ("session is stale").
-- **Same-slot reload.** A `native_open` while a player exists replaces the
-  source in place (pipeline parked to READY, or mpv `stop` + `loadfile
-  replace`) and adopts the new key. The GTK GL sink/area and widget are kept
-  alive across source changes (recreating them can invalidate the WebKit or
-  EGL composited layer on Wayland). On Windows a texture presenter generation
-  change rebuilds the player instead.
-- **Late-cleanup guard.** `native_close` releases the engine only when the
-  presented key owns it, or when no session owns it (a parked engine or a
-  failed open that never assigned a key). Cleanup that arrives late from an
-  older controller — an older React render or a superseded open — is a no-op
-  and never parks the newer session. Released engines are parked (READY /
-  `stop`, widget hidden), not destroyed.
-- **Validate before teardown.** `native_open` verifies the protocol and the
-  source authorization (below), and Linux resolves the requested backend,
-  before the current player is touched. An invalid request therefore never
-  stops the playing session.
-
-## Source authorization and header validation
-
-`NativeOpenRequest` carries `headers`, `cookies`, `userAgent`, `referrer` and
-`tlsCaFile`. `validate_authorization` (`src/models.rs`) rejects the whole
-request with `INVALID_REQUEST` ("Invalid source authorization") when:
-
-- there are more than 32 headers;
-- a header name is empty, longer than 128 bytes, or contains anything other
-  than ASCII letters, digits and `-`;
-- two header names are equal ignoring ASCII case;
-- a header name is hop-by-hop or transport-owned: `host`, `connection`,
-  `content-length`, `transfer-encoding`, `proxy-authorization`, `upgrade`,
-  `keep-alive`, `te`, `trailer`;
-- any header value, cookie, user agent or referrer is longer than 8192 bytes or
-  contains a control character (CR/LF injection);
-- the `cookies`, `userAgent` or `referrer` property conflicts with a header of
-  the same meaning (`Cookie`, `User-Agent`, `Referer`) carrying a different
-  value.
-
-Engines apply the validated values for directly opened sources (proxied HLS
-sources carry them in the proxy instead, see below): GStreamer sets `user-agent`, `cookies`,
-`extra-headers` (adding `Referer` when not already a header) and a 60 s
-`timeout` on HTTP sources; mpv sets `http-header-fields` (cookie and referrer
-folded in), `user-agent` (default `tauri-plugin-video`) and `tls-ca-file`.
-The mpv HTTP field list is replaced as a native node array, preserving opaque
-commas and backslashes without list parsing or file-local command resets.
-Percent-length quoting belongs to mpv suboptions and must not prefix HTTP field
-names. A real libmpv test uses the complete production open/replace sequence:
-Authorization, Cookie, Referer and User-Agent must arrive together, including
-comma and trailing-backslash values. Replacement also removes the prior
-source's fields before decoding the new source at its requested position.
-
-## HLS sanitizing proxy
-
-IPTV CDNs disguise HLS segments: they are named `.png`, `.jpg`, `.gif`,
-`.css` or have no extension, are served with a lying `Content-Type`, and often
-carry a real image header or stylesheet text before the media. GStreamer's
-hlsdemux2 and mpv typefind those bytes as images and fail; no engine setting
-fixes it. On Linux and Windows the plugin therefore serves HLS through a small
-HTTP proxy it owns (`src/desktop/source_proxy*`).
-
-- **When.** `native_open` proxies an http(s) source whose path ends in
-  `.m3u8`/`.m3u`. `NativeOpenRequest.sourceProxy: true` forces the proxy for
-  any http(s) source (an HLS playlist without that name); `false` opts out.
-  Other sources (MP4, MKV, raw TS) open directly as before. If the proxy
-  cannot start or register the source, it opens directly.
-- **Shape.** The server starts lazily on first use, binds `127.0.0.1` on an
-  ephemeral port and runs on its own two-worker runtime. Each opened source
-  gets a random 128-bit capability token in the path
-  (`/{token}/{kind}/{hex upstream URL}/{name}`); requests without a live
-  token are `404`.
-- **Authorization.** The proxy fetches upstream itself with the validated
-  headers, cookie, referrer, user agent (default `tauri-plugin-video`) and
-  `tlsCaFile` roots. The engine receives only the proxy URL, with no headers,
-  cookies or TLS file.
-- **Playlists** (detected by `#EXTM3U` content, at most 4 MiB) are rewritten:
-  stream variants, `EXT-X-MEDIA`, `EXT-X-I-FRAME-STREAM-INF` and rendition
-  reports as playlists; segments, `EXT-X-MAP`, `EXT-X-PART` and preload hints
-  as segments; `EXT-X-KEY`, `EXT-X-SESSION-KEY` and session data as raw
-  resources. URIs are resolved against the playlist's final URL with query
-  strings kept; anything that is not http(s) (`file:`, `data:`, `skd:`, …)
-  is replaced by a URL that always fails.
-- **Segments** are classified by their first 64 KiB, never by name or header:
-  junk before the first MPEG-TS packet run (sync `0x47` repeating at the
-  188-byte stride, five packets, or three for a complete short segment, so a
-  GIF's leading `G` is not a sync byte), the first fMP4 box chain (`ftyp`,
-  `styp`, `moof`, `moov`, `sidx`, `emsg`, `prft`), or the first ID3 tag/ADTS
-  frame run is dropped, and the response carries `video/mp2t`, `video/mp4` or
-  `audio/aac`. An unrecognised body passes through unchanged, without
-  repeating an image, font, stylesheet or HTML type. The rest of the body is
-  streamed, never buffered.
-- **Ranges.** A segment's prefix length is remembered (up to 1024 per
-  source); later ranges are shifted past it and `Content-Length` and
-  `Content-Range` describe the cleaned resource. A range that starts inside an
-  unseen segment is forwarded unchanged. Keys and raw resources are forwarded
-  byte-for-byte, ranges included.
-- **Bounds.** At most 6 concurrent upstream requests (queued up to 20 s, then
-  `503`) and 32 engine connections; 10 s connect, 30 s read and 30 s playlist
-  timeouts; up to 8 redirects, only to http(s), and a public source may not
-  redirect into loopback, private, link-local or CGNAT address literals or
-  `localhost` (a source that is already local may).
-- **Ownership.** A registration becomes current only when the engine accepts
-  the source; then older routes end. A failed open discards only the new
-  registration. `native_close` releases routes with the engine's late-cleanup
-  rule (owned by the presented key, or unowned). Ending a route aborts its
-  in-flight transfers.
-- **Errors.** Upstream refusals keep their status (`401`, `403`, `404`, …) so
-  engine error mapping is unchanged; transport failures are `502`.
-- **Diagnostics.** `native_diagnostics.sourceProxy` is true on desktop builds;
-  `NativePlaybackSnapshot.sourceProxied` says whether the current session is
-  proxied. Proxy logs carry fixed messages and counts only, never URLs,
-  headers, cookies or paths.
-
-## Snapshots, tracks and live/DVR
-
-`NativePlaybackSnapshot` reports `durationSeconds`, `currentTimeSeconds`,
-`bufferedSeconds`, `playing`, `videoWidth`/`videoHeight`, frame counters
-(`presentedFrames`, `droppedFrames`, `measuredFps`), `hardwareBackend`,
-`backend` (the engine actually serving the session) and buffer statistics.
-
-- **Tracks** are independent: each `NativeTrackInfo` has `id`, `index`, `kind`
-  (`video` | `audio` | `subtitle`), `language`, `label`, `codec`, `selected`.
-  Audio and subtitle selection use `track` / `deselectTrack` by `index`.
-- **Live/DVR.** `live` is true when the engine reports no duration, or (GStreamer)
-  when the latency query reports a live pipeline. `seekable`,
-  `seekableStartSeconds` and `seekableEndSeconds` describe the window the engine
-  can actually serve; mpv may report an unseekable source with a demuxer-cache
-  window. Clients must refuse seeks outside that window rather than dispatch
-  them.
-
-## Typed errors
-
-Every command error serializes as `{code, message, recoverable, stage?}`
-(`src/error.rs`). Messages are fixed, safe strings; runtime details (URLs,
-headers, cookies, paths, engine debug output) are never serialized, displayed
-or included in `Debug` output.
-
-| Code | Meaning | Recoverable | Stage |
-| --- | --- | --- | --- |
-| `PROTOCOL_MISMATCH` | client/plugin protocol or package metadata mismatch | no | `protocol` |
-| `INVALID_REQUEST` | malformed request, stale session key, rejected authorization, unknown backend/action | no | — |
-| `RUNTIME_UNAVAILABLE` | requested engine not compiled or its runtime failed to initialize | no | — |
-| `PIPELINE_FAILED` | a pipeline, operation or native UI dispatcher failure whose cause is not known to be decoding | yes | `pipeline` |
-| `DECODE_FAILED` | an explicit decoder/codec failure | yes | `decode` |
-| `MEDIA_FORMAT_FAILED` | the source did not provide recognizable media | no | `decode` |
-| `VIDEO_OUTPUT_FAILED` | native video surface initialization or rendering failed | no | `video-output` |
-| `AUDIO_OUTPUT_FAILED` | native audio output initialization failed | no | `audio-output` |
-| `PROTECTED_MEDIA` | media decryption/key access failed | no | — |
-| `SOURCE_OPEN_FAILED` | source loading failed without a more specific cause | no | — |
-| `AUTHORIZATION_FAILED` | the origin refused authorization (GStreamer `NotAuthorized`) | no | — |
-| `CONNECTION_FAILED` | the origin could not be read (`OpenRead`, `Read`, `Close`, `Busy`, …) | yes | — |
-| `SOURCE_UNAVAILABLE` | the source is missing or expired (`NotFound`) | no | — |
-| `MOBILE_PLUGIN_ERROR` | Android plugin invocation failed | no | — |
-
-## Runtime capability limits
-
-The plugin never claims universal codec, HDR, DRM or UHD support; those are
-runtime facts of the installed engine and hardware.
-
-- **Linux:** GStreamer `playbin3` into a `gtkglsink` GTK widget placed below a
-  transparent WebView aperture (default), or libmpv rendering into a
-  `GtkGLArea` (`mpv-runtime`, explicit). TLS trust: `tlsCaFile` loads a GIO
-  file database on GStreamer (a load failure is logged and the system trust is
-  kept) and maps to mpv `tls-ca-file`.
-  GStreamer materializes RGBA SystemMemory through `videoconvert` before GL
-  upload, so hardware decoder buffers need not support direct import into the
-  GTK GL context. Decoder selection stays native; this compatibility transfer
-  adds CPU conversion/copy work. The existing GL subtitle compositor and
-  picture viewport remain downstream of it.
-- **Windows:** GStreamer with D3D11 decoding presented as a WebView2 texture
-  stream on the real `<video>` element. `native_prepare_texture_stream` must
-  succeed before `native_open` (otherwise `PIPELINE_FAILED`); the plugin enables
-  the `msWebView2TextureStream` WebView2 feature in `Builder::build`. mpv is refused.
-- **Android:** Media3 through the Android plugin (`openNative`, …). Buffer
-  durations (`minBufferMs`, `playbackBufferMs`, `rebufferMs`), `decoderFallback`,
-  `dolbyVisionMode` and `tunneling` apply only there.
-- **Buffering:** `maxBufferMs` is clamped to 3–120 s on desktop engines;
-  `targetBufferBytes` is clamped to at least 4 MiB on GStreamer and maps to the
-  demuxer cache on mpv. Omitted values keep engine defaults.
-- **Diagnostics:** `native_diagnostics` reports protocol, crate name/version,
-  the `sourceProxy` capability,
-  OS and compiled engines only. Engine diagnostics go through `tracing`
-  (`debug`/`trace` for telemetry, `warn`/`error` for failures) and never
-  include source URLs, headers, cookies, licenses or local paths.
-
-## Acceptance
-
-Locally: `npm run check`, `npm run build`, `cargo fmt --all -- --check`,
-`cargo clippy --all-targets --all-features -- -D warnings`, and
-`cargo test --all-features` / `--no-default-features` (Linux engine tests decode
-a real MP4 over a local HTTP server through open → stats → seek → close, and
-play disguised HLS — PNG/JPEG/GIF/CSS prefixes, renamed segments, lying
-`Content-Type`, a range origin and fMP4 — to the end on GStreamer and mpv
-through the proxy).
-On the target host, verify surface attachment, source replacement, late-cleanup
-safety, tracks, subtitles, live/DVR seeking and error mapping.
-
-## Linux picture presentation
-
-Linux GStreamer keeps Fit at the source's display aspect ratio. Crop (Fill)
-centers an oversized native widget inside a clipped GTK viewport; it changes
-presentation of the existing frame, including while paused. The viewport stays
-at the DOM anchor's rectangle, and resize/source-dimension changes recompute the
-centered crop. Pixel-aspect ratio is included. No seek, pipeline restart or
-backend session replacement is used. MPV retains its existing native panscan
-implementation. Windows Fit/Fill qualification remains separate.
-
-The Linux surface host allocates the reparented GTK content immediately and
-tracks window allocations, rather than retaining a 1x1 wrapper around a
-realized WebView. Native surfaces receive the requested anchor allocation even
-before GTK's next layout pass.
-
-## Host shutdown
-
-The Rust `Video.shutdown_native()` API is a host-lifecycle operation, separate
-from a session's ownership-checked `native_close`. Call it from a worker thread;
-the platform dispatcher retires the native UI player. The host worker then waits
-up to five seconds for Linux GStreamer's serialized engine worker to complete
-the NULL transition, without blocking GTK sink callbacks. Failure or timeout
-returns an error, not a successful cleanup acknowledgement. MPV stops
-and removes its update/render callbacks through its destructor. All process-owned
-HLS proxy routes are retired even when engine cleanup reports an error. The host
-owns renderer/backend lease cleanup and final process termination.
-
-Debug builds accept `VIPTV_TEST_BLOCK_NATIVE_CLOSE=1` to block the native UI
-close dispatcher for a fault-injection test. Release builds compile out this
-switch. It is not a playback preference or production recovery behavior.
+The implementation contains opt-in qualification fixtures for native playback,
+seek, track controls, picture presentation, source refusal/recovery and shutdown.
+These fixtures are separate from a universal device or format guarantee. Generic
+qualification settings use the `TAURI_VIDEO_` prefix.

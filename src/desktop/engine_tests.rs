@@ -7,9 +7,9 @@ use std::time::{Duration, Instant};
 /// libmpv open sequence. Input stays private; output contains aliases and facts.
 #[cfg(feature = "mpv-runtime")]
 #[test]
-#[ignore = "VIPTV_NATIVE_PROVIDER_CASES private movie delivery JSON required"]
+#[ignore = "TAURI_VIDEO_NATIVE_PROVIDER_CASES private movie delivery JSON required"]
 fn concurrent_real_movie_mpv_playback() {
-    let path = std::env::var("VIPTV_NATIVE_PROVIDER_CASES").expect("private case file");
+    let path = std::env::var("TAURI_VIDEO_NATIVE_PROVIDER_CASES").expect("private case file");
     let cases: serde_json::Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     let cases = cases.as_array().unwrap();
     assert_eq!(cases.len(), 20, "qualify twenty distinct movies");
@@ -28,7 +28,7 @@ fn concurrent_real_movie_mpv_playback() {
                 super::linux_mpv::open_engine_source(&mpv, &payload, defaults).unwrap();
                 // Reproduce the shared adapter's historical second, immediate resume
                 // seek. It runs before libmpv has loaded the file and returns -12.
-                if std::env::var_os("VIPTV_REPRO_EARLY_RESUME_SEEK").is_some() {
+                if std::env::var_os("TAURI_VIDEO_REPRO_EARLY_RESUME_SEEK").is_some() {
                     let result = mpv.command(
                         "seek",
                         &[&payload.start_at_seconds.to_string(), "absolute+exact"],
@@ -81,14 +81,14 @@ fn concurrent_real_movie_mpv_playback() {
 
 #[cfg(feature = "gstreamer-runtime")]
 #[test]
-#[ignore = "VIPTV_NATIVE_PROVIDER_CASES private movie delivery JSON required"]
+#[ignore = "TAURI_VIDEO_NATIVE_PROVIDER_CASES private movie delivery JSON required"]
 fn concurrent_real_movie_gstreamer_playback() {
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
     };
     gst::init().unwrap();
-    let path = std::env::var("VIPTV_NATIVE_PROVIDER_CASES").expect("private case file");
+    let path = std::env::var("TAURI_VIDEO_NATIVE_PROVIDER_CASES").expect("private case file");
     let cases: serde_json::Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
     let cases = cases.as_array().unwrap();
     assert_eq!(cases.len(), 20);
@@ -280,7 +280,7 @@ fn mp4_fixture() -> &'static Vec<u8> {
     static FIXTURE: OnceLock<Vec<u8>> = OnceLock::new();
     FIXTURE.get_or_init(|| {
         let path = std::env::temp_dir().join(format!(
-            "viptv-plugin-engine-test-{}.mp4",
+            "tauri-video-plugin-engine-test-{}.mp4",
             std::process::id()
         ));
         let status = std::process::Command::new("ffmpeg")

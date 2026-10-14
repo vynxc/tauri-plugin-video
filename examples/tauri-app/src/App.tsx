@@ -6,7 +6,7 @@ import {
   createTauriVideoClient,
   type AttachVideoOptions as TauriAttachVideoOptions,
   type NativeVideoBackend,
-} from '@get-air/video-tauri'
+} from '@vynxc/video-tauri'
 
 import { NativeMediaPlayer, type PlayerTelemetry } from './NativeMediaPlayer'
 import { errorMessage } from './error-message'

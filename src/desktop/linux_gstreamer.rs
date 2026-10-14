@@ -51,7 +51,7 @@ impl EngineQueue {
         let alive = Arc::new(AtomicBool::new(true));
         let lifetime = EngineLifetime(Arc::clone(&alive));
         std::thread::Builder::new()
-            .name("viptv-gst-engine".into())
+            .name("tauri-video-gst-engine".into())
             .spawn(move || {
                 let _lifetime = lifetime;
                 while let Ok(job) = receiver.recv() {

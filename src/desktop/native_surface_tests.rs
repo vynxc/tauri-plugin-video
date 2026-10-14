@@ -32,16 +32,16 @@ fn settle_picture() {
 }
 
 #[test]
-#[ignore = "GTK display, private cases, VIPTV_NATIVE_CASE_INDEX and VIPTV_NATIVE_ENGINE required"]
+#[ignore = "GTK display, private cases, TAURI_VIDEO_NATIVE_CASE_INDEX and TAURI_VIDEO_NATIVE_ENGINE required"]
 fn real_movie_surface_case() {
     gtk::init().unwrap();
-    let path = std::env::var("VIPTV_NATIVE_PROVIDER_CASES").unwrap();
+    let path = std::env::var("TAURI_VIDEO_NATIVE_PROVIDER_CASES").unwrap();
     let cases: serde_json::Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
-    let index: usize = std::env::var("VIPTV_NATIVE_CASE_INDEX")
+    let index: usize = std::env::var("TAURI_VIDEO_NATIVE_CASE_INDEX")
         .unwrap()
         .parse()
         .unwrap();
-    let engine = std::env::var("VIPTV_NATIVE_ENGINE").unwrap();
+    let engine = std::env::var("TAURI_VIDEO_NATIVE_ENGINE").unwrap();
     assert!(matches!(engine.as_str(), "mpv" | "gstreamer"));
     let case = &cases[index];
     let alias = case["alias"].as_str().unwrap();
@@ -155,16 +155,16 @@ fn until(
     }
 }
 #[test]
-#[ignore = "real GTK display and VIPTV_NATIVE_PROVIDER_CASES private JSON required"]
+#[ignore = "real GTK display and TAURI_VIDEO_NATIVE_PROVIDER_CASES private JSON required"]
 fn real_provider_native_surface_controls() {
     gtk::init().expect("GTK display");
-    let input = std::env::var("VIPTV_NATIVE_PROVIDER_CASES").expect("private case file");
+    let input = std::env::var("TAURI_VIDEO_NATIVE_PROVIDER_CASES").expect("private case file");
     let cases: serde_json::Value = serde_json::from_slice(&std::fs::read(input).unwrap()).unwrap();
     let cases = cases.as_array().unwrap();
     assert!(!cases.is_empty());
     let window = gtk::Window::new(gtk::WindowType::Toplevel);
     window.set_default_size(640, 480);
-    window.set_title("VIPTV native control check");
+    window.set_title("TAURI_VIDEO native control check");
     let fixed = gtk::Fixed::new();
     window.add(&fixed);
     window.show_all();
@@ -182,10 +182,10 @@ fn real_provider_native_surface_controls() {
             payload.muted = true;
             payload.volume = 0.0;
             let key = payload.session_key.clone();
-            if std::env::var_os("VIPTV_NATIVE_FAILURE_RECOVERY").is_some() && index == 0 {
+            if std::env::var_os("TAURI_VIDEO_NATIVE_FAILURE_RECOVERY").is_some() && index == 0 {
                 let mut missing = payload.clone();
                 missing.session_key = format!("failed-{engine}");
-                missing.uri = "file:///viptv-qualification-missing-source.mkv".into();
+                missing.uri = "file:///tauri-video-qualification-missing-source.mkv".into();
                 missing.headers.clear();
                 missing.cookies = None;
                 missing.user_agent = None;
@@ -437,7 +437,7 @@ fn real_provider_native_surface_controls() {
 }
 
 #[test]
-#[ignore = "real GTK display and VIPTV_NATIVE_PROVIDER_CASES silent fixture required"]
+#[ignore = "real GTK display and TAURI_VIDEO_NATIVE_PROVIDER_CASES silent fixture required"]
 fn real_native_http_refusal_and_recovery() {
     use std::io::{Read, Write};
     use std::sync::{
@@ -465,7 +465,7 @@ fn real_native_http_refusal_and_recovery() {
             let _ = write!(stream, "HTTP/1.1 407 Proxy Authentication Required\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
         }
     });
-    let input = std::env::var("VIPTV_NATIVE_PROVIDER_CASES").expect("silent fixture cases");
+    let input = std::env::var("TAURI_VIDEO_NATIVE_PROVIDER_CASES").expect("silent fixture cases");
     let cases: serde_json::Value = serde_json::from_slice(&std::fs::read(input).unwrap()).unwrap();
     let fixture: NativeOpenRequest = serde_json::from_value(cases[0]["payload"].clone()).unwrap();
     let window = gtk::Window::new(gtk::WindowType::Toplevel);

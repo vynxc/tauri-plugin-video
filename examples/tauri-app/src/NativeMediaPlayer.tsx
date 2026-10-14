@@ -20,7 +20,7 @@ import {
   type VideoFitMode,
   type VideoSource,
 } from '@get-air/video'
-import type { NativeVideoBackend, VideoClient } from '@get-air/video-tauri'
+import type { NativeVideoBackend, VideoClient } from '@vynxc/video-tauri'
 
 import { errorMessage } from './error-message'
 

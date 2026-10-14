@@ -527,7 +527,7 @@ fn drain_bus(player: &mut NativePlayer) -> Result<()> {
             gst::MessageView::Application(application) => {
                 if let Some(details) = application
                     .structure()
-                    .filter(|s| s.name() == "viptv-control-refused")
+                    .filter(|s| s.name() == "tauri-video-control-refused")
                 {
                     if let Some(action) = refusal_action(
                         details,
@@ -714,7 +714,7 @@ fn select_stream(player: &mut NativePlayer, index: i32, enabled: bool) -> Result
 }
 
 fn report_control_refusal(pipeline: &gst::Element, key: &str, revision: u64, action: &str) {
-    let details = gst::Structure::builder("viptv-control-refused")
+    let details = gst::Structure::builder("tauri-video-control-refused")
         .field("session-key", key)
         .field("revision", revision)
         .field("action", action)

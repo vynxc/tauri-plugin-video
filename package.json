@@ -1,16 +1,16 @@
 {
-  "name": "@viptv/video-tauri",
+  "name": "@vynxc/video-tauri",
   "version": "0.4.0",
-  "author": "VIPTV contributors",
-  "description": "VIPTV native Tauri video engine: the tauri-plugin-video Rust crate and its JavaScript protocol fa\u00e7ade.",
+  "author": "vynxc",
+  "description": "Native platform video playback for Tauri, with a typed JavaScript adapter and Rust plugin.",
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/viptv-org/tauri-video-plugin.git"
+    "url": "git+https://github.com/vynxc/tauri-plugin-video.git"
   },
-  "homepage": "https://github.com/viptv-org/tauri-video-plugin#readme",
+  "homepage": "https://github.com/vynxc/tauri-plugin-video#readme",
   "bugs": {
-    "url": "https://github.com/viptv-org/tauri-video-plugin/issues"
+    "url": "https://github.com/vynxc/tauri-plugin-video/issues"
   },
   "sideEffects": false,
   "keywords": [
@@ -82,6 +82,6 @@
     "tslib": "^2.8.1",
     "tsx": "^4.23.11",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.4"
+    "vitest": "^5.0.4"
   }
 }

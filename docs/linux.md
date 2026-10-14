@@ -12,7 +12,7 @@ tauri-plugin-video = { version = "0.4", features = ["mpv-runtime"] }
 ```
 
 ```ts
-import { createTauriVideoClient } from '@get-air/video-tauri'
+import { createTauriVideoClient } from '@vynxc/video-tauri'
 
 const client = createTauriVideoClient()
 const player = await client.attach(video, {

@@ -17,7 +17,7 @@
   "allowScripts": { "esbuild": true },
   "dependencies": {
     "@get-air/video": "git+https://github.com/get-air/video.git#817a2a07a01da7e95cf1517f6bd6bcd3c01eb508",
-    "@get-air/video-tauri": "file:../..",
+    "@vynxc/video-tauri": "file:../..",
     "@noriginmedia/norigin-spatial-navigation": "^3.3.0",
     "@tauri-apps/api": "^2.0.0",
     "media-chrome": "^4.19.2",
